@@ -3,7 +3,7 @@ services:
   app:
     build: .
     ports:
-      - "3434:3434"
+      - "80:80"
     environment:
       - NODE_ENV=production
     volumes:

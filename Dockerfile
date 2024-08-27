@@ -14,7 +14,7 @@ RUN npx prisma generate
 
 RUN npm run build
 
-EXPOSE 3434
+EXPOSE 80
 
 # Step 8: Define the command to run your application
 CMD ["node", "dist/server.js"]
