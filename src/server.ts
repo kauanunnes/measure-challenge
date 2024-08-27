@@ -8,7 +8,7 @@ const app = express()
 const port = 3434
 
 app.get('/', (req: Request, res: Response) => {
-   res.send("Started server...")
+  res.send("Started server...")
 })
 
 app.listen(port, () => {
