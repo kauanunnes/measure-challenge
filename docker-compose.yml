@@ -1,0 +1,10 @@
+version: '3'
+services:
+  app:
+    build: .
+    ports:
+      - "3434:3434"
+    environment:
+      - NODE_ENV=production
+    volumes:
+      - ./prisma/database/:/usr/src/app/data
