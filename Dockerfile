@@ -1,6 +1,7 @@
 FROM node:18-alpine
 
 ENV DATABASE_URL=file:./database/dev.db
+ENV PORT=80
 
 WORKDIR /app
 
@@ -16,7 +17,7 @@ RUN npx prisma generate
 
 RUN npm run build
 
-EXPOSE 16254
+EXPOSE $PORT
 
 # Step 8: Define the command to run your application
 CMD ["node", "dist/server.js"]

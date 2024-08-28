@@ -5,7 +5,7 @@ import filesRoutes from './routes/fileRoutes'
 
 const app = express()
 
-const port = 16254
+const port = process.env.PORT
 
 app.use(express.json({ limit: '50mb' }))
 

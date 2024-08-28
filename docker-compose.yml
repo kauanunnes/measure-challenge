@@ -3,10 +3,11 @@ services:
   app:
     build: .
     ports:
-      - "16254:16254"
+      - "80:80"
     environment:
       - NODE_ENV=production
       - DATABASE_URL=file:./database/dev.db
+      - PORT=80
     volumes:
       - ./prisma/database/:/usr/src/app/data
     env_file:
