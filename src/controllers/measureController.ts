@@ -57,7 +57,7 @@ class MeasureController {
       })
 
       res.json({
-        image_url: `${req.protocol}://${req.get("host")}/api/files/${result?.fileTempPath}`,
+        image_url: `${req.protocol}://${req.get("host")}/files/${result?.fileTempPath}`,
         measure_value: newMeasure.measure_value,
         measure_uuid: newMeasure.id,
       });

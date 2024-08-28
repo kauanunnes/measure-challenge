@@ -9,11 +9,11 @@ const port = process.env.PORT
 
 app.use(express.json({ limit: '50mb' }))
 
-app.use('/api', measureRoutes, filesRoutes)
+app.use('/', measureRoutes, filesRoutes)
 
 app.use('/files', express.static(path.join(__dirname, 'temp')));
 
-app.post('/', async (req: Request, res: Response) => {
+app.get('/', async (req: Request, res: Response) => {
   res.send("Running server")
 })
 
