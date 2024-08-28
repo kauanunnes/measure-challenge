@@ -1,114 +1,134 @@
 import { Request, Response } from "express";
 import { PrismaClient } from "@prisma/client";
-import {
-  checkBody,
-  imageToText,
-  validateMeasureType,
-} from "../utils/utils";
+import { checkBody, imageToText, validateMeasureType, validateCustomerCode } from "../utils/utils";
 
 const prisma = new PrismaClient();
 
 class MeasureController {
+
+  constructor() {
+    this.uploadMeasure = this.uploadMeasure.bind(this);
+    this.getMeasuresById = this.getMeasuresById.bind(this);
+    this.confirmMeasureValue = this.confirmMeasureValue.bind(this);
+  }
+
+  private handleError(res: Response, error: unknown) {
+    console.error(error); 
+    res.status(500).send("Unknown error");
+  }
+
+  private sendError(res: Response, status: number, errorCode: string, errorDescription: string) {
+    res.status(status).json({ error_code: errorCode, error_description: errorDescription });
+  }
+
   async uploadMeasure(req: Request, res: Response): Promise<void> {
+    
+    if (!checkBody(req)) {
+      return this.sendError(res, 400, "INVALID_DATA", "Os dados fornecidos no corpo da requisição são inválidos");
+    }
+
+    const { image, customer_code: customerCode, measure_datetime: measureDatetime, measure_type: measureType } = req.body;
+
     try {
-      if (!checkBody(req)) {
-        res.status(400).json({
-          error_code: "INVALID_DATA",
-          error_description:
-            "Os dados fornecidos no corpo da requisição são inválidos",
-        });
-        return;
+      const measureExists = await this.checkIfMeasureExists(customerCode, measureType, measureDatetime);
+      if (measureExists) {
+        return this.sendError(res, 409, "DOUBLE_REPORT", "Já existe uma leitura para este tipo no mês atual");
       }
 
-      const image = req.body?.image;
-      const customerCode = req.body?.customer_code;
-      const measureDatetime = req.body?.measure_datetime;
-      const measureType = req.body?.measure_type;
 
-      const measure = await prisma.measure.findFirst({
-        where: {
-          customerId: customerCode,
-          type: measureType.toUpperCase(),
-          datetime: measureDatetime,
-        },
-      });
-
-      if (measure) {
-        res.status(409).json({
-          error_code: "DOUBLE_REPORT",
-          error_description:
-            "Já existe uma leitura para este tipo no mês atual",
-        });
-        return;
-      }
-
-      const result = await imageToText(image, "first");
-
-      const newMeasure = await prisma.measure.create({
+      let newMeasure = await prisma.measure.create({
         data: {
           customerId: customerCode,
           datetime: measureDatetime,
-          measure_value: parseInt(result?.text || "0"),
+          measure_value: 0,
           type: measureType.toUpperCase(),
         },
       });
 
+      const result = await imageToText(image, newMeasure.id);
+
+      newMeasure = await prisma.measure.update({
+        where: {
+          id: newMeasure.id,
+        },
+        data: {
+          measure_value: parseInt(result?.text || "0"),
+        }
+      })
+
       res.json({
-        image_url: `${req.protocol}://${req.get("host")}/api/files/${
-          result?.fileTempPath
-        }`,
+        image_url: `${req.protocol}://${req.get("host")}/api/files/${result?.fileTempPath}`,
         measure_value: newMeasure.measure_value,
         measure_uuid: newMeasure.id,
       });
-
-      return;
     } catch (error) {
-      res.status(500).send("Unknown error");
+      this.handleError(res, error);
     }
   }
 
   async getMeasuresById(req: Request, res: Response): Promise<void> {
-    try {
-      const { id } = req.params;
-      const query = req.query?.measure_type;
-      if (query) {
-        if (!validateMeasureType(query)) {
-          res.status(400).json({
-            error_code: "INVALID_TYPE",
-            error_description: "Tipo de medição não permitida",
-          });
-          return;
-        }
-      }
+    const { id } = req.params;
+    const query = req.query?.measure_type?.toString().toUpperCase();
 
+    if (query && !validateMeasureType(query)) {
+      return this.sendError(res, 400, "INVALID_TYPE", "Tipo de medição não permitida");
+    }
+
+    try {
       const measures = await prisma.measure.findMany({
         where: {
           customerId: id,
-          ...(query && { type: query.toString().toUpperCase() as string }),
+          ...(query && { type: query }),
         },
       });
 
-      if (measures.length == 0) {
-        res.status(404).send({
-          error_code: "MEASURES_NOT_FOUND",
-          error_description: "Nenhuma leitura encontrada",
-        });
-        return;
+      if (measures.length === 0) {
+        return this.sendError(res, 404, "MEASURES_NOT_FOUND", "Nenhuma leitura encontrada");
       }
 
       res.json(measures);
-      return;
     } catch (error) {
-      res.status(500).send("Unknown error");
+      this.handleError(res, error);
     }
   }
 
   async confirmMeasureValue(req: Request, res: Response): Promise<void> {
-    try {
-      res.json([]);
-    } catch (error) {
-      res.status(500).send("Unknown error");
+    const { confirmed_value: confirmValue, measure_uuid: measureId } = req.body;
+
+    if (!validateCustomerCode(measureId) || isNaN(parseInt(confirmValue))) {
+      return this.sendError(res, 400, "INVALID_DATA", "Os dados fornecidos no corpo da requisição são inválidos");
     }
+
+    try {
+      const measure = await prisma.measure.findFirst({ where: { id: measureId } });
+
+      if (!measure) {
+        return this.sendError(res, 404, "MEASURES_NOT_FOUND", "Nenhuma leitura encontrada");
+      }
+
+      if (measure.confirmed_value !== null) {
+        return this.sendError(res, 409, "CONFIRMATION_DUPLICATE", "Leitura já confirmada");
+      }
+
+      await prisma.measure.update({
+        where: { id: measureId },
+        data: { confirmed_value: confirmValue },
+      });
+
+      res.status(200).json({ success: "true" });
+    } catch (error) {
+      this.handleError(res, error);
+    }
+  }
+
+  private async checkIfMeasureExists(customerCode: string, measureType: string, measureDatetime: string) {
+    return await prisma.measure.findFirst({
+      where: {
+        customerId: customerCode,
+        type: measureType.toUpperCase(),
+        datetime: measureDatetime,
+      },
+    });
   }
 }
 

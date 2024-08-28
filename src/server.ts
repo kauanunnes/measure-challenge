@@ -1,14 +1,13 @@
 import express, {Request, Response} from 'express'
 import measureRoutes from './routes/measureRoutes'
-import formidable from 'express-formidable'
 import path from 'path'
 import filesRoutes from './routes/fileRoutes'
 
 const app = express()
 
-const port = 80
+const port = 16254
 
-app.use(express.json({limit: '50mb'}))
+app.use(express.json({ limit: '50mb' }))
 
 app.use('/api', measureRoutes, filesRoutes)
 

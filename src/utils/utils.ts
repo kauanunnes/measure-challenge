@@ -3,8 +3,7 @@ import fs from "fs";
 import { GoogleAIFileManager } from "@google/generative-ai/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import path from "path";
-import { Request, Response } from "express";
-import { types } from "util";
+import { Request } from "express";
 
 dotenv.config();
 
@@ -17,7 +16,7 @@ const model = genAI.getGenerativeModel({
   model: "gemini-1.5-pro",
 });
 
-export const imageToText = async (base64: any, measureId: string) => {
+export const imageToText = async (base64: string, measureId: string) => {
   try {
     const outputFolderPath = path.join(__dirname, "..", "tmp");
 
@@ -32,12 +31,9 @@ export const imageToText = async (base64: any, measureId: string) => {
     );
 
     const base64Data = base64.replace(/^data:image\/\w+;base64,/, "");
-    // Decode the Base64 string to binary data
     const buffer = Buffer.from(base64Data, "base64");
 
-    // Write the buffer to a file
     fs.writeFileSync(outputFilePath, buffer);
-    console.log("Image saved successfully:", outputFilePath);
     const uploadResponse = await fileManager.uploadFile(outputFilePath, {
       mimeType: "image/jpeg",
       displayName: "Jetpack drawing",
@@ -56,7 +52,9 @@ export const imageToText = async (base64: any, measureId: string) => {
     ]);
     const text = result.response.text();
     return { text, fileTempPath: `${measureId}.jpg` };
-  } catch (error) {}
+  } catch (error) {
+    console.log(error)
+  }
 };
 
 export const checkBody = (req: Request): boolean => {
@@ -103,7 +101,7 @@ const validateImage = (image: string): boolean => {
   );
 };
 
-const validateCustomerCode = (customerCode: any): boolean => {
+export const validateCustomerCode = (customerCode: unknown): boolean => {
   return typeof customerCode === "string";
 };
 
@@ -112,7 +110,7 @@ const validateMeasureDatetime = (measureDatetime: string): boolean => {
   return !isNaN(date.getTime());
 };
 
-export const validateMeasureType = (measureType: any): boolean => {
+export const validateMeasureType = (measureType: string): boolean => {
   const typeUpperCase = measureType?.toUpperCase();
   return typeUpperCase === "WATER" || typeUpperCase === "GAS";
 };

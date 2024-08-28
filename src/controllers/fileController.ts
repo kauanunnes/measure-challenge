@@ -7,7 +7,6 @@ class FileController {
     try {
       const { fileName } = req.params;
       const filePath = path.join(__dirname, '../tmp', fileName);
-      console.log(filePath)
 
       if (fs.existsSync(filePath)) {
         res.sendFile(filePath, (err) => {
