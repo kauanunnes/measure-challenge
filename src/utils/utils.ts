@@ -3,6 +3,8 @@ import fs from "fs";
 import { GoogleAIFileManager } from "@google/generative-ai/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import path from "path";
+import { Request, Response } from "express";
+import { types } from "util";
 
 dotenv.config();
 
@@ -17,10 +19,19 @@ const model = genAI.getGenerativeModel({
 
 export const imageToText = async (base64: any, measureId: string) => {
   try {
-    const outputFilePath = path.join(__dirname, "..", "tmp", `${measureId}.jpg`);
+    const outputFolderPath = path.join(__dirname, "..", "tmp");
+
+    if (!fs.existsSync(outputFolderPath)) {
+      fs.mkdirSync(outputFolderPath);
+    }
+    const outputFilePath = path.join(
+      __dirname,
+      "..",
+      "tmp",
+      `${measureId}.jpg`
+    );
 
     const base64Data = base64.replace(/^data:image\/\w+;base64,/, "");
-
     // Decode the Base64 string to binary data
     const buffer = Buffer.from(base64Data, "base64");
 
@@ -39,9 +50,69 @@ export const imageToText = async (base64: any, measureId: string) => {
           fileUri: uploadResponse.file.uri,
         },
       },
-      { text: "transcribe the numbers in image" },
+      {
+        text: "say me the numbers in image, just the numbers without any other text",
+      },
     ]);
     const text = result.response.text();
-    return {text, fileTempPath: `${measureId}.jpg`};
+    return { text, fileTempPath: `${measureId}.jpg` };
   } catch (error) {}
+};
+
+export const checkBody = (req: Request): boolean => {
+  const image = req.body?.image;
+  const customerCode = req.body?.customer_code;
+  const measureDatetime = req.body?.measure_datetime;
+  const measureType = req.body?.measure_type;
+  if (!validateImage(image)) {
+    return false;
+  }
+
+  if (!validateCustomerCode(customerCode)) {
+    return false;
+  }
+
+  if (!validateMeasureDatetime(measureDatetime)) {
+    return false;
+  }
+
+  if (!validateMeasureType(measureType)) {
+    return false;
+  }
+
+  return true;
+};
+
+const validateImage = (image: string): boolean => {
+  if (!image || image.length % 4 !== 0) {
+    return false;
+  }
+
+  const base64Regex = /^[A-Za-z0-9+/]*={0,2}$/;
+  if (!base64Regex.test(image)) {
+    return false;
+  }
+
+  const decoded = Buffer.from(image, "base64").toString("binary");
+  const reEncoded = Buffer.from(decoded, "binary").toString("base64");
+
+  return (
+    image === reEncoded ||
+    image === reEncoded + "=" ||
+    image === reEncoded + "=="
+  );
+};
+
+const validateCustomerCode = (customerCode: any): boolean => {
+  return typeof customerCode === "string";
+};
+
+const validateMeasureDatetime = (measureDatetime: string): boolean => {
+  const date = new Date(measureDatetime);
+  return !isNaN(date.getTime());
+};
+
+export const validateMeasureType = (measureType: any): boolean => {
+  const typeUpperCase = measureType?.toUpperCase();
+  return typeUpperCase === "WATER" || typeUpperCase === "GAS";
 };
