@@ -5,6 +5,7 @@ import {
   imageToText,
   validateMeasureType,
   validateCustomerCode,
+  isValidNumber,
 } from "../utils/utils";
 import { endOfMonth, startOfMonth } from "date-fns";
 
@@ -34,12 +35,13 @@ class MeasureController {
   }
 
   async uploadMeasure(req: Request, res: Response): Promise<void> {
-    if (!checkBody(req)) {
+    const { isValid, errors } = checkBody(req);
+    if (!isValid) {
       return this.sendError(
         res,
         400,
         "INVALID_DATA",
-        "Os dados fornecidos no corpo da requisição são inválidos"
+        `Os seguintes campos fornecidos estão incorretos: ${errors.join(", ")}`
       );
     }
 
@@ -134,14 +136,24 @@ class MeasureController {
   }
 
   async confirmMeasureValue(req: Request, res: Response): Promise<void> {
-    const { confirmed_value: confirmValue, measure_uuid: measureId } = req.body;
+    const { confirmed_value: confirmedValue, measure_uuid: measureId } = req.body;
+    
+    const errors: string[] = [];
 
-    if (!validateCustomerCode(measureId) || isNaN(parseInt(confirmValue))) {
+    if (!validateCustomerCode(measureId)) {
+      errors.push("measure_id");
+    }
+
+    if (!isValidNumber(confirmedValue)) {
+      errors.push("confirmed_value");
+    }
+    
+    if (errors.length > 0) {
       return this.sendError(
         res,
         400,
         "INVALID_DATA",
-        "Os dados fornecidos no corpo da requisição são inválidos"
+         `Os seguintes campos fornecidos estão incorretos: ${errors.join(", ")}`
       );
     }
 
@@ -170,7 +182,7 @@ class MeasureController {
 
       await prisma.measure.update({
         where: { id: measureId },
-        data: { confirmed_value: confirmValue },
+        data: { confirmed_value: confirmedValue },
       });
 
       res.status(200).json({ success: "true" });

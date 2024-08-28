@@ -53,32 +53,40 @@ export const imageToText = async (base64: string, measureId: string) => {
     const text = result.response.text();
     return { text, fileTempPath: `${measureId}.jpg` };
   } catch (error) {
-    console.log(error)
+    console.log(error);
   }
 };
 
-export const checkBody = (req: Request): boolean => {
+export const checkBody = (
+  req: Request
+): { isValid: boolean; errors: string[] } => {
+  const errors: string[] = [];
+
   const image = req.body?.image;
   const customerCode = req.body?.customer_code;
   const measureDatetime = req.body?.measure_datetime;
   const measureType = req.body?.measure_type;
+
   if (!validateImage(image)) {
-    return false;
+    errors.push("image");
   }
 
   if (!validateCustomerCode(customerCode)) {
-    return false;
+    errors.push("customer_code");
   }
 
   if (!validateMeasureDatetime(measureDatetime)) {
-    return false;
+    errors.push("measure_datetime");
   }
 
   if (!validateMeasureType(measureType)) {
-    return false;
+    errors.push("measure_type");
   }
 
-  return true;
+  return {
+    isValid: errors.length === 0,
+    errors,
+  };
 };
 
 const validateImage = (image: string): boolean => {
@@ -114,3 +122,5 @@ export const validateMeasureType = (measureType: string): boolean => {
   const typeUpperCase = measureType?.toUpperCase();
   return typeUpperCase === "WATER" || typeUpperCase === "GAS";
 };
+
+export const isValidNumber = (value: string): boolean => !isNaN(parseInt(value)) && Number.isFinite(parseInt(value));
