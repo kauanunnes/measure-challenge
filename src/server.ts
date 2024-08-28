@@ -1,17 +1,21 @@
-import dotenv from 'dotenv'
 import express, {Request, Response} from 'express'
 import measureRoutes from './routes/measureRoutes'
-
-dotenv.config()
+import formidable from 'express-formidable'
+import path from 'path'
+import filesRoutes from './routes/fileRoutes'
 
 const app = express()
 
-const port = 3434
+const port = 80
 
-app.use('/api', measureRoutes)
+app.use(express.json({limit: '50mb'}))
 
-app.get('/', (req: Request, res: Response) => {
-  res.send("Started server...")
+app.use('/api', measureRoutes, filesRoutes)
+
+app.use('/files', express.static(path.join(__dirname, 'temp')));
+
+app.post('/', async (req: Request, res: Response) => {
+  res.send("Running server")
 })
 
 app.listen(port, () => {
